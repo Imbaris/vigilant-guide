@@ -1,0 +1,118 @@
+import datetime
+import time
+import re
+import os
+import errno
+import sys
+      
+#Function 1
+#This functin get all error in logs files with a path
+def getAllErrorLogsWithPath(path) :
+    errors = []
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            if (file.lower().endswith(('.gz'))):
+                import gzip
+                isGzip = True
+                logFile = gzip.open(path + file , 'r') 
+            else: 
+                logFile = openFile(path + file)
+                isGzip = False
+            print(path + file + ' analyse in progress...')
+            errors = getAllErrorLog(logFile, isGzip)
+            print(path + file + ' analyse finished...')
+    return errors
+
+#Function 2
+#This function open a file in read mode with a path and file name
+def openFile(fileLogPath):
+      return open(fileLogPath)
+
+#Function 3
+#This function return an array with all errors found in file
+def getAllErrorLog(logFile, isGzip):
+    listError401 = []
+    listError403 = []
+    listError404 = []
+    errorCode = ''
+    print('Search for 401, 403 or 404 error in current file in progess...')
+    for logRow in logFile:
+        if (isGzip):
+            logRow = logRow.decode('utf-8')  
+        errorCode = getErrorLog(logRow)
+        if('401' == errorCode):
+            listError401.append(logRow)
+        if('403' == errorCode):
+            listError403.append(logRow)
+        if('404' == errorCode):
+            listError404.append(logRow)
+    logFile.close()
+    
+    return [listError401, listError403, listError404]
+
+#Function 4
+#This function check error 401, 403 and 404 for a row and return error code found if there is one else return false
+def getErrorLog(logRow):  
+    regexErrorCodes = r"^(.*?(\b(401|403|404)\b)[^$]*)$" #Ceci est une regex : https://bit.ly/2U2S9lB
+    matches = re.search(regexErrorCodes, logRow)
+    if (matches):
+        return matches[2]
+    else:
+        return ''
+
+#Function 5
+#This function show all errors found in console if user press 'y'    
+def showErrorLogs(inputValue): 
+    if('y' == console_input):
+        print(allErrorLogs)
+    else:
+        print('OK, no result on console')
+
+#Function 6
+#This function write errors file if user press 'y'
+def createErrorLogFile(inputValue):
+    if('y' == file_input):
+        erroFileName = writeErrorLogs(allErrorLogs)
+        time.sleep(1)
+        print('File ' + erroFileName + ' was created')
+
+#Function 7
+#This function create (if not exists) '/log/ folder and create an .error file with today's date
+def writeErrorLogs(allErrorLogs):
+    today = datetime.datetime.now().strftime("%d%m%Y")
+    errorsFileName = "./errors/" + today + "/logs.error"
+    if not os.path.exists(os.path.dirname(errorsFileName)):
+        try:
+            #os.path.dirname
+            os.makedirs(os.path.dirname(errorsFileName))
+        except OSError as exc: # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise     
+    if os.path.exists(errorsFileName):
+        os.remove(errorsFileName)
+        print("deleted")    
+    with open(errorsFileName, "w") as errorsRecap:
+        for ligne in allErrorLogs:
+            errorsRecap.write("%s\n" % ligne)
+        errorsRecap.close()
+    return errorsFileName
+
+#Main Application
+logsPath = "./logs/"
+
+print("Starting read all logs files ...")
+allErrorLogs = getAllErrorLogsWithPath(logsPath)
+
+if not(allErrorLogs):
+    print("There are no logs in the folder : " + logsPath)
+    input("Press any case to exit !")
+    sys.exit()
+console_input = input('Result on console : y/n ? \n')
+showErrorLogs(console_input)
+
+file_input = input('Generate error file on ./errors : y/n ? \n')
+createErrorLogFile(file_input)
+
+input("Press any case to exit !")
+sys.exit()
+
